@@ -348,37 +348,67 @@ def perform_initial_commit_and_push(vault_path):
 
 # -- SSH Key Generation in Background
 
-def post_generate_ssh_key():
-    """
-    Runs on main thread after SSH key generation. Opens GitHub keys page.
-    """
-    #webbrowser.open("https://github.com/settings/keys")
-    messagebox.showinfo("SSH Key Generation",
-                        "Your SSH key has been generated (if it didn't exist). "
-                        "Click the Copy button to copy to the clipboard.\n"
-                        "Please add the public key (~/.ssh/id_rsa.pub) to your GitHub account.")
-
-def generate_ssh_key_async(user_email):
-    """
-    Runs in background thread to avoid blocking the UI.
-    """
-    key_path = SSH_KEY_PATH.replace("id_rsa.pub", "id_rsa")
-    if not os.path.exists(SSH_KEY_PATH):
-        safe_update_log("Generating SSH Key...", 25)
-        run_command(f'ssh-keygen -t rsa -b 4096 -C "{user_email}" -f "{key_path}" -N ""')
-    root.after(0, post_generate_ssh_key)
-
 def generate_ssh_key():
     """
-    Prompts for email and starts background thread for SSH key generation.
+    Prompts for the user's email and starts a background thread for SSH key generation.
     """
-    user_email = simpledialog.askstring("SSH Key Generation",
-                                        "Enter your email address for the SSH key:",
-                                        parent=root)
+    user_email = simpledialog.askstring(
+        "SSH Key Generation",
+        "Enter your email address for the SSH key:",
+        parent=root
+    )
     if not user_email:
         messagebox.showerror("Email Required", "No email address provided. SSH key generation canceled.")
         return
+
     threading.Thread(target=generate_ssh_key_async, args=(user_email,), daemon=True).start()
+
+
+def generate_ssh_key_async(user_email):
+    """
+    Runs in a background thread to:
+      1) Generate an SSH key if it doesn't already exist.
+      2) Copy the public key to the clipboard.
+      3) Show an info dialog on the main thread.
+      4) After the user closes the dialog, open GitHub's SSH settings in the browser.
+    """
+    key_path_private = SSH_KEY_PATH.replace("id_rsa.pub", "id_rsa")
+
+    # 1) Generate key if it doesn't exist
+    if not os.path.exists(SSH_KEY_PATH):
+        safe_update_log("Generating SSH key...", 25)
+        out, err, rc = run_command(f'ssh-keygen -t rsa -b 4096 -C "{user_email}" -f "{key_path_private}" -N ""')
+        if rc != 0:
+            safe_update_log(f"SSH key generation failed: {err}", 25)
+            return
+        safe_update_log("SSH key generated successfully.", 30)
+    else:
+        safe_update_log("SSH key already exists. Overwriting is not performed here.", 30)
+
+    # 2) Read public key and copy to clipboard
+    try:
+        with open(SSH_KEY_PATH, "r", encoding="utf-8") as key_file:
+            public_key = key_file.read().strip()
+            pyperclip.copy(public_key)
+        safe_update_log("Public key copied to clipboard.", 35)
+    except Exception as e:
+        safe_update_log(f"Error reading SSH key: {e}", 35)
+        return
+
+    # 3 & 4) Show dialog, then open GitHub in the main thread
+    def show_dialog_then_open_browser():
+        # Show the info dialog first
+        messagebox.showinfo(
+            "SSH Key Generated",
+            "Your SSH key has been generated (if needed) and copied to your clipboard.\n\n"
+            "Click OK to open GitHub's SSH keys page in your browser.\n"
+            "Then, paste the key and click 'Re-test SSH' to confirm connectivity."
+        )
+        # After the user closes the dialog, open the browser
+        webbrowser.open("https://github.com/settings/keys")
+
+    root.after(0, show_dialog_then_open_browser)
+
 
 def copy_ssh_key():
     """
