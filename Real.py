@@ -132,7 +132,64 @@ def safe_update_log(message, progress=None):
     else:
         print(message)
 
+def is_network_available():
+    """
+    Checks if the network is available by trying to connect to github.com over HTTPS.
+    Returns True if successful, otherwise False.
+    """
+    import socket
+    try:
+        socket.create_connection(("github.com", 443), timeout=5)
+        return True
+    except Exception:
+        return False
 
+def get_unpushed_commits(vault_path):
+    """
+    Fetches the latest from origin and returns a string listing commits in HEAD that are not in origin/main.
+    """
+    # Update remote tracking info first.
+    run_command("git fetch origin", cwd=vault_path)
+    unpushed, _, _ = run_command("git log origin/main..HEAD --oneline", cwd=vault_path)
+    return unpushed.strip()
+
+def conflict_resolution_dialog(conflict_files):
+    """
+    Opens a modal dialog that lists conflicting files and offers three options:
+    "Keep Local Changes" (ours), "Keep Remote Changes" (theirs), or "Merge Manually".
+    Returns the user's choice as one of the strings: "ours", "theirs", or "manual".
+    """
+    top = tk.Toplevel(root)
+    top.title("Merge Conflict Detected")
+    top.geometry("400x220")
+    top.grab_set()  # Make modal
+
+    label_text = ("Merge conflict detected in the following file(s):\n" +
+                  conflict_files + "\n\n" +
+                  "How would you like to resolve these conflicts?\n"
+                  "• Keep Local Changes (your version)\n"
+                  "• Keep Remote Changes (GitHub version)\n"
+                  "• Merge Manually (open and resolve the conflict manually)")
+    label = tk.Label(top, text=label_text, justify="left", wraplength=380)
+    label.pack(pady=10, padx=10)
+
+    resolution = {"choice": None}
+
+    def set_choice(choice):
+        resolution["choice"] = choice
+        top.destroy()
+
+    btn_frame = tk.Frame(top)
+    btn_frame.pack(pady=10)
+    btn_local = tk.Button(btn_frame, text="Keep Local", width=15, command=lambda: set_choice("ours"))
+    btn_remote = tk.Button(btn_frame, text="Keep Remote", width=15, command=lambda: set_choice("theirs"))
+    btn_manual = tk.Button(btn_frame, text="Merge Manually", width=15, command=lambda: set_choice("manual"))
+    btn_local.grid(row=0, column=0, padx=5)
+    btn_remote.grid(row=0, column=1, padx=5)
+    btn_manual.grid(row=0, column=2, padx=5)
+
+    top.wait_window()
+    return resolution["choice"]
 
 # ------------------------------------------------
 # GITHUB SETUP FUNCTIONS
@@ -431,90 +488,134 @@ def copy_ssh_key():
 
 def auto_sync():
     """
-    Called if setup is already done. This function:
-      - Checks for an initial commit (creates one if needed, adding a placeholder file if the vault is empty).
-      - Checks if the remote branch 'main' exists and pushes the initial commit if not.
-      - Stashes local changes, pulls updates, and logs file details of the pull.
-      - Opens Obsidian and waits until it is closed.
-      - Commits any changes made and logs file-level details from the commit.
-      - Pushes the changes, logging any network errors.
+    This function is executed if setup is complete.
+    It performs the following steps:
+      1. Ensures that the vault has at least one commit (creating an initial commit if necessary, 
+         including generating a placeholder file if the vault is empty).
+      2. Checks network connectivity.
+         - If online, it verifies that the remote branch ('main') exists (pushing the initial commit if needed)
+           and pulls the latest updates from GitHub (using rebase and prompting for conflict resolution if required).
+         - If offline, it skips remote operations.
+      3. Stashes any local changes before pulling.
+      4. Reapplies stashed changes.
+      5. Opens Obsidian for editing and waits until it is closed.
+      6. Upon Obsidian closure, stages and commits any changes.
+      7. If online, pushes any unpushed commits to GitHub.
+      8. Displays a final synchronization completion message.
     """
     vault_path = config_data["VAULT_PATH"]
     obsidian_path = config_data["OBSIDIAN_PATH"]
 
     if not vault_path or not obsidian_path:
-        safe_update_log("Vault path or Obsidian path not set. Please run setup again.")
+        safe_update_log("Vault path or Obsidian path not set. Please run setup again.", 0)
         return
 
     def sync_thread():
-        # --- Ensure we have at least one local commit ---
+        # Step 1: Ensure a local commit exists
         out, err, rc = run_command("git rev-parse HEAD", cwd=vault_path)
         if rc != 0:
-            safe_update_log("No local commits detected. Checking if vault is empty...", 5)
-            # Call the placeholder creation function
+            safe_update_log("No existing commits found in your vault. Verifying if the vault is empty...", 5)
             ensure_placeholder_file(vault_path)
-            safe_update_log("Creating an initial commit...", 5)
-            run_command("git add .", cwd=vault_path)
+            safe_update_log("Creating an initial commit to initialize the repository...", 5)
+            run_command("git add -A", cwd=vault_path)
             out_commit, err_commit, rc_commit = run_command('git commit -m "Initial commit (auto-sync)"', cwd=vault_path)
             if rc_commit == 0:
-                safe_update_log("Initial commit created.", 5)
+                safe_update_log("Initial commit created successfully.", 5)
             else:
                 safe_update_log(f"❌ Error creating initial commit: {err_commit}", 5)
                 return
         else:
-            safe_update_log("Local repository has commits.", 5)
+            safe_update_log("Local repository already contains commits.", 5)
 
-
-        # --- Check if the remote branch 'main' exists ---
-        ls_out, ls_err, ls_rc = run_command("git ls-remote --heads origin main", cwd=vault_path)
-        if not ls_out.strip():
-            safe_update_log("Remote branch 'main' not found.", 10)
-            safe_update_log("Pushing initial commit to create the remote branch...", 10)
-            out_push, err_push, rc_push = run_command("git push -u origin main", cwd=vault_path)
-            if rc_push == 0:
-                safe_update_log("Initial commit pushed successfully to remote repository.", 15)
-            else:
-                safe_update_log(f"❌ Error pushing initial commit: {err_push}", 15)
-                return
+        # Step 2: Check network connectivity
+        network_available = is_network_available()
+        if not network_available:
+            safe_update_log("No internet connection detected. Skipping remote sync operations and proceeding in offline mode.", 10)
         else:
-            safe_update_log("Remote branch 'main' exists. Proceeding with pull...", 10)
+            safe_update_log("Internet connection detected. Proceeding with remote synchronization.", 10)
+            # Verify remote branch 'main'
+            ls_out, ls_err, ls_rc = run_command("git ls-remote --heads origin main", cwd=vault_path)
+            if not ls_out.strip():
+                safe_update_log("Remote branch 'main' not found. Pushing initial commit to create the remote branch...", 10)
+                out_push, err_push, rc_push = run_command("git push -u origin main", cwd=vault_path)
+                if rc_push == 0:
+                    safe_update_log("Initial commit has been successfully pushed to GitHub.", 15)
+                else:
+                    safe_update_log(f"❌ Error pushing initial commit: {err_push}", 15)
+                    network_available = False
+            else:
+                safe_update_log("Remote branch 'main' found. Proceeding to pull updates from GitHub...", 10)
 
-        # --- Stash local changes ---
-        safe_update_log("Stashing local changes (if any)...", 15)
+        # Step 3: Stash local changes
+        safe_update_log("Stashing any local changes...", 15)
         run_command("git stash", cwd=vault_path)
 
-        # --- Pull latest changes ---
-        safe_update_log("Pulling latest changes from GitHub...", 20)
-        out, err, rc = run_command("git pull --rebase origin main", cwd=vault_path)
-        if rc != 0:
-            if "Could not resolve hostname" in err or "network" in err.lower():
-                safe_update_log("❌ Network error: Unable to pull changes. Your local changes remain safely stashed.", 30)
-            elif "CONFLICT" in (out + err):
-                safe_update_log("❌ Merge conflict occurred during pull. Please resolve conflicts manually.", 30)
+        # Step 4: If online, pull the latest updates (with conflict resolution)
+        if network_available:
+            safe_update_log("Pulling the latest updates from GitHub...", 20)
+            out, err, rc = run_command("git pull --rebase origin main", cwd=vault_path)
+            if rc != 0:
+                if "Could not resolve hostname" in err or "network" in err.lower():
+                    safe_update_log("❌ Unable to pull updates due to a network error. Local changes remain safely stashed.", 30)
+                elif "CONFLICT" in (out + err):
+                    safe_update_log("❌ A merge conflict was detected during the pull operation.", 30)
+                    # Retrieve the list of conflicting files
+                    conflict_files, _, _ = run_command("git diff --name-only --diff-filter=U", cwd=vault_path)
+                    if not conflict_files.strip():
+                        conflict_files = "Unknown files"
+                    # Prompt user for resolution choice
+                    choice = conflict_resolution_dialog(conflict_files)
+                    if choice == "ours":
+                        safe_update_log("Resolving conflict by keeping local changes...", 30)
+                        run_command("git checkout --ours .", cwd=vault_path)
+                        run_command("git add -A", cwd=vault_path)
+                        rc_rebase, err_rebase, _ = run_command("git rebase --continue", cwd=vault_path)
+                        if rc_rebase != 0:
+                            safe_update_log(f"Error continuing rebase: {err_rebase}", 30)
+                            run_command("git rebase --abort", cwd=vault_path)
+                            network_available = False
+                    elif choice == "theirs":
+                        safe_update_log("Resolving conflict by using remote changes...", 30)
+                        run_command("git checkout --theirs .", cwd=vault_path)
+                        run_command("git add -A", cwd=vault_path)
+                        rc_rebase, err_rebase, _ = run_command("git rebase --continue", cwd=vault_path)
+                        if rc_rebase != 0:
+                            safe_update_log(f"Error continuing rebase: {err_rebase}", 30)
+                            run_command("git rebase --abort", cwd=vault_path)
+                            network_available = False
+                    elif choice == "abort":
+                        safe_update_log("Aborting rebase as per user choice.", 30)
+                        run_command("git rebase --abort", cwd=vault_path)
+                        network_available = False
+                    else:
+                        safe_update_log("No valid conflict resolution chosen. Aborting rebase.", 30)
+                        run_command("git rebase --abort", cwd=vault_path)
+                        network_available = False
+                else:
+                    safe_update_log(f"❌ Pull operation failed: {err}", 30)
+                run_command("git stash pop", cwd=vault_path)
+                network_available = False
             else:
-                safe_update_log(f"❌ Pull failed: {err}", 30)
-            run_command("git stash pop", cwd=vault_path)
-            return
+                safe_update_log("Pull operation completed successfully. Your vault is updated with the latest changes from GitHub.", 30)
+                if out.strip():
+                    for line in out.splitlines():
+                        safe_update_log(f"✓ {line}", None)
         else:
-            safe_update_log("Pull completed successfully. Your vault is now updated with remote changes.", 30)
-            # Log details from the pull command (if any)
-            if out.strip():
-                for line in out.splitlines():
-                    safe_update_log(f"✓ {line}", None)
+            safe_update_log("Skipping pull operation due to offline mode.", 20)
 
-        # --- Reapply stashed changes ---
+        # Step 5: Reapply stashed changes
         out, err, rc = run_command("git stash pop", cwd=vault_path)
         if rc != 0 and "No stash" not in err:
             if "CONFLICT" in (out + err):
-                safe_update_log("❌ Merge conflict while reapplying your stashed changes. Please resolve manually.", 35)
+                safe_update_log("❌ A merge conflict occurred while reapplying stashed changes. Please resolve manually.", 35)
                 return
             else:
-                safe_update_log(f"Stash pop error: {err}", 35)
+                safe_update_log(f"Stash pop operation failed: {err}", 35)
                 return
-        safe_update_log("Local changes reapplied successfully.", 35)
+        safe_update_log("Successfully reapplied stashed local changes.", 35)
 
-        # --- Open Obsidian ---
-        safe_update_log("Opening Obsidian for editing. Please make your changes and close Obsidian when done.", 40)
+        # Step 6: Open Obsidian for editing
+        safe_update_log("Launching Obsidian. Please edit your vault and close Obsidian when finished.", 40)
         try:
             subprocess.Popen([obsidian_path], shell=True)
         except Exception as e:
@@ -524,40 +625,99 @@ def auto_sync():
         while is_obsidian_running():
             time.sleep(0.5)
 
-        # 6) Commit changes after Obsidian closes
-        safe_update_log("Obsidian closed. Committing local changes...", 50)
-        run_command("git add .", cwd=vault_path)
+        # Step 7: Pull any new changes from GitHub after Obsidian closes
+        safe_update_log("Obsidian has been closed. Checking for new remote changes before committing...", 50)
+
+        # Re-check network connectivity before pulling
+        network_available = is_network_available()
+        if network_available:
+            safe_update_log("Pulling any new updates from GitHub before committing...", 50)
+            out, err, rc = run_command("git pull --rebase origin main", cwd=vault_path)
+            if rc != 0:
+                if "Could not resolve hostname" in err or "network" in err.lower():
+                    safe_update_log("❌ Unable to pull updates due to network error. Continuing with local commit.", 50)
+                elif "CONFLICT" in (out + err):  # Detect merge conflicts
+                    safe_update_log("❌ Merge conflict detected in new remote changes.", 50)
+                    # Retrieve the list of conflicting files
+                    conflict_files, _, _ = run_command("git diff --name-only --diff-filter=U", cwd=vault_path)
+                    if not conflict_files.strip():
+                        conflict_files = "Unknown files"
+                    # Prompt user for conflict resolution
+                    choice = conflict_resolution_dialog(conflict_files)
+                    if choice == "ours":
+                        safe_update_log("Resolving conflict by keeping local changes...", 50)
+                        run_command("git checkout --ours .", cwd=vault_path)
+                        run_command("git add -A", cwd=vault_path)
+                        rc_rebase, err_rebase, _ = run_command("git rebase --continue", cwd=vault_path)
+                        if rc_rebase != 0:
+                            safe_update_log(f"Error continuing rebase: {err_rebase}", 50)
+                            run_command("git rebase --abort", cwd=vault_path)
+                    elif choice == "theirs":
+                        safe_update_log("Resolving conflict by using remote changes...", 50)
+                        run_command("git checkout --theirs .", cwd=vault_path)
+                        run_command("git add -A", cwd=vault_path)
+                        rc_rebase, err_rebase, _ = run_command("git rebase --continue", cwd=vault_path)
+                        if rc_rebase != 0:
+                            safe_update_log(f"Error continuing rebase: {err_rebase}", 50)
+                            run_command("git rebase --abort", cwd=vault_path)
+                    elif choice == "manual":
+                        safe_update_log("Please resolve the conflicts manually. After resolving, click OK to continue.", 50)
+                        messagebox.showinfo("Manual Merge", "Please resolve the conflicts in the affected files manually and then click OK.")
+                        run_command("git add -A", cwd=vault_path)
+                        rc_rebase, err_rebase, _ = run_command("git rebase --continue", cwd=vault_path)
+                        if rc_rebase != 0:
+                            safe_update_log(f"Error continuing rebase after manual merge: {err_rebase}", 50)
+                            run_command("git rebase --abort", cwd=vault_path)
+                    else:
+                        safe_update_log("No valid conflict resolution chosen. Aborting rebase.", 50)
+                        run_command("git rebase --abort", cwd=vault_path)
+                else:
+                    safe_update_log("New remote updates have been successfully pulled.", 50)
+                    # Log pulled files
+                    for line in out.splitlines():
+                        safe_update_log(f"✓ Pulled: {line}", 50)
+        else:
+            safe_update_log("No network detected. Skipping remote check and proceeding with local commit.", 50)
+
+        # Step 8: Commit changes after Obsidian closes
+        safe_update_log("Obsidian has been closed. Committing any local changes...", 50)
+        run_command("git add -A", cwd=vault_path)
         out, err, rc = run_command('git commit -m "Auto sync commit"', cwd=vault_path)
         committed = True
         if rc != 0 and "nothing to commit" in (out + err).lower():
             safe_update_log("No changes detected during this session. Nothing to commit.", 55)
             committed = False
         elif rc != 0:
-            safe_update_log(f"❌ Commit failed: {err}", 55)
+            safe_update_log(f"❌ Commit operation failed: {err}", 55)
             return
         else:
-            safe_update_log("Local commit successful.", 55)
-            # Log file-level details of what was committed
+            safe_update_log("Local changes have been committed successfully.", 55)
             commit_details, err_details, rc_details = run_command("git diff-tree --no-commit-id --name-status -r HEAD", cwd=vault_path)
             if rc_details == 0 and commit_details.strip():
                 for line in commit_details.splitlines():
                     safe_update_log(f"✓ {line}", None)
 
-        # 7) Push changes only if there were commits made
-        if committed:
-            safe_update_log("Pushing changes to GitHub...", 60)
-            out, err, rc = run_command("git push origin main", cwd=vault_path)
-            if rc != 0:
-                if "Could not resolve hostname" in err or "network" in err.lower():
-                    safe_update_log("❌ Network error while pushing. Your changes are safely committed locally and will be pushed when an internet connection is available.", 70)
-                else:
-                    safe_update_log(f"❌ Push failed: {err}", 70)
-                return
-            safe_update_log("✅ Changes pushed successfully to GitHub.", 70)
+        # Step 9: Push changes if network is available
+        network_available = is_network_available()
+        if network_available:
+            unpushed = get_unpushed_commits(vault_path)
+            if unpushed:
+                safe_update_log("Pushing all unpushed commits to GitHub...", 60)
+                out, err, rc = run_command("git push origin main", cwd=vault_path)
+                if rc != 0:
+                    if "Could not resolve hostname" in err or "network" in err.lower():
+                        safe_update_log("❌ Unable to push changes due to network issues. Your changes remain locally committed and will be pushed once connectivity is restored.", 70)
+                    else:
+                        safe_update_log(f"❌ Push operation failed: {err}", 70)
+                    return
+                safe_update_log("✅ All changes have been successfully pushed to GitHub.", 70)
+            else:
+                safe_update_log("No new commits to push.", 70)
         else:
-            safe_update_log("No changes to push.", 70)
-            
-        safe_update_log("Sync complete. You can close this window now.", 100)
+            safe_update_log("Offline mode: Changes have been committed locally. They will be automatically pushed when an internet connection is available.", 70)
+
+        # Step 9: Final message
+        safe_update_log("Synchronization complete. You may now close this window.", 100)
 
     threading.Thread(target=sync_thread, daemon=True).start()
 
