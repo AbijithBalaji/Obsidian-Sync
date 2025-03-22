@@ -10,6 +10,7 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox, filedialog, simpledialog
 import webbrowser
 import pyperclip
+from queue import Queue
 
 # ------------------------------------------------
 # CONFIG / GLOBALS
@@ -27,7 +28,7 @@ SSH_KEY_PATH = os.path.expanduser("~/.ssh/id_rsa.pub")
 root = None  # We will create this conditionally
 log_text = None
 progress_bar = None
-
+log_queue = Queue()
 # ------------------------------------------------
 # CONFIG HANDLING
 # ------------------------------------------------
@@ -130,22 +131,39 @@ def is_obsidian_running():
             return True
     return False
 
-def safe_update_log(message, progress=None):
-    def _update():
-        try:
-            if log_text and progress_bar and root.winfo_exists():
-                log_text.config(state='normal')
-                log_text.insert(tk.END, message + "\n")
-                log_text.config(state='disabled')
-                log_text.yview_moveto(1)
-                if progress is not None:
-                    progress_bar["value"] = progress
-            else:
-                print(message)
-        except Exception as e:
-            print("Error updating log:", e)
-    root.after(0, _update)
+def _update_log(message, progress):
+    try:
+        if log_text and progress_bar and root.winfo_exists():
+            log_text.config(state='normal')
+            log_text.insert(tk.END, message + "\n")
+            log_text.config(state='disabled')
+            log_text.yview_moveto(1)
+            if progress is not None:
+                progress_bar["value"] = progress
+        else:
+            print(message)
+    except Exception as e:
+        print("Error updating log:", e)
 
+def safe_update_log(message, progress=None):
+    """
+    Thread-safe logging: if called from the main thread, updates immediately;
+    otherwise, it puts the message into a global queue to be processed in the main loop.
+    """
+    if threading.current_thread() == threading.main_thread():
+        _update_log(message, progress)
+    else:
+        log_queue.put((message, progress))
+
+def process_log_queue():
+    """
+    Processes log messages from the queue and updates the UI.
+    This function should be scheduled to run periodically in the main thread.
+    """
+    while not log_queue.empty():
+        message, progress = log_queue.get()
+        _update_log(message, progress)
+    root.after(100, process_log_queue)
 
 def is_network_available():
     """
@@ -911,7 +929,7 @@ def main():
         # Not set up yet: run the wizard UI
         create_wizard_ui()
         run_setup_wizard()
-
+    process_log_queue()
     root.mainloop()
 
 def create_minimal_ui(auto_run=False):
