@@ -1,9 +1,11 @@
 import os
 import subprocess
 import sys
+import shlex
 import threading
 import time
 import psutil
+import shutil
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox, filedialog, simpledialog
 import webbrowser
@@ -109,10 +111,22 @@ def ensure_github_known_host():
 
 def is_obsidian_running():
     """
-    Checks if Obsidian.exe is currently running.
+    Checks if Obsidian is currently running.
+    
+    Windows: looks for "obsidian.exe".
+    Linux: looks for "obsidian".
+    macOS: looks for "Obsidian".
     """
-    for proc in psutil.process_iter(attrs=['name']):
-        if proc.info['name'] and proc.info['name'].lower() == "obsidian.exe":
+    process_name = ""
+    if sys.platform.startswith("win"):
+        process_name = "obsidian.exe"
+    elif sys.platform.startswith("linux"):
+        process_name = "obsidian"
+    elif sys.platform.startswith("darwin"):
+        process_name = "Obsidian"
+    for proc in psutil.process_iter(attrs=["name"]):
+        name = proc.info.get("name", "")
+        if name and name.lower() == process_name.lower():
             return True
     return False
 
@@ -152,6 +166,20 @@ def get_unpushed_commits(vault_path):
     run_command("git fetch origin", cwd=vault_path)
     unpushed, _, _ = run_command("git log origin/main..HEAD --oneline", cwd=vault_path)
     return unpushed.strip()
+
+def open_obsidian(obsidian_path):
+    """
+    Launches Obsidian in a cross-platform manner.
+    On Linux, if obsidian_path is a command string (e.g., from Flatpak), it is split properly;
+    otherwise, it launches using shell=True.
+    """
+    import shlex
+    if sys.platform.startswith("linux"):
+        cmd = shlex.split(obsidian_path)
+        subprocess.Popen(cmd)
+    else:
+        subprocess.Popen([obsidian_path], shell=True)
+
 
 def conflict_resolution_dialog(conflict_files):
     """
@@ -296,31 +324,86 @@ def ensure_placeholder_file(vault_path):
 
 def find_obsidian_path():
     """
-    Attempts to locate Obsidian's installation path in common Windows locations.
-    If not found, prompts user to locate manually.
-    Returns path or None.
+    Attempts to locate Obsidian’s installation or launch command based on the OS.
+    
+    Windows:
+      - Checks common installation directories for "Obsidian.exe".
+    Linux:
+      - Checks if 'obsidian' is in PATH.
+      - Checks common Flatpak paths.
+      - Checks common Snap path.
+      - As a fallback, returns the Flatpak command string.
+    macOS:
+      - Checks the default /Applications folder.
+      - Checks PATH.
+    
+    If not found, it prompts the user to manually locate the executable.
+    
+    Returns the path or command string to launch Obsidian, or None.
     """
-    possible_paths = [
-        os.path.expandvars(r"%LOCALAPPDATA%\Programs\Obsidian\Obsidian.exe"),
-        os.path.expandvars(r"%PROGRAMFILES%\Obsidian\Obsidian.exe"),
-        os.path.expandvars(r"%PROGRAMFILES(X86)%\Obsidian\Obsidian.exe")
-    ]
-    for path in possible_paths:
-        if os.path.exists(path):
-            return path
+    if sys.platform.startswith("win"):
+        possible_paths = [
+            os.path.expandvars(r"%LOCALAPPDATA%\Programs\Obsidian\Obsidian.exe"),
+            os.path.expandvars(r"%PROGRAMFILES%\Obsidian\Obsidian.exe"),
+            os.path.expandvars(r"%PROGRAMFILES(X86)%\Obsidian\Obsidian.exe")
+        ]
+        for path in possible_paths:
+            if os.path.exists(path):
+                return path
+        response = messagebox.askyesno("Obsidian Not Found",
+                                       "Obsidian was not detected in standard locations.\n"
+                                       "Would you like to locate the Obsidian executable manually?")
+        if response:
+            selected_path = filedialog.askopenfilename(
+                title="Select Obsidian Executable",
+                filetypes=[("Obsidian Executable", "*.exe")]
+            )
+            if selected_path:
+                return selected_path
+        return None
 
-    # Prompt user to select
-    response = messagebox.askyesno("Obsidian Not Found",
-                                   "Obsidian not detected in standard locations.\n"
-                                   "Locate the Obsidian.exe manually?")
-    if response:
-        selected_path = filedialog.askopenfilename(
-            title="Select Obsidian Executable",
-            filetypes=[("Obsidian Executable", "*.exe")]
-        )
-        if selected_path:
-            return selected_path
-    return None
+    elif sys.platform.startswith("linux"):
+        # Option 1: Check if 'obsidian' is in PATH.
+        obsidian_cmd = shutil.which("obsidian")
+        if obsidian_cmd:
+            return obsidian_cmd
+        # Option 2: Check common Flatpak paths.
+        flatpak_paths = [
+            os.path.expanduser("~/.local/share/flatpak/exports/bin/obsidian"),
+            "/var/lib/flatpak/exports/bin/obsidian"
+        ]
+        for path in flatpak_paths:
+            if os.path.exists(path):
+                return path
+        # Option 3: Check Snap installation.
+        snap_path = "/snap/bin/obsidian"
+        if os.path.exists(snap_path):
+            return snap_path
+        # Option 4: Fallback to a command string.
+        # (You can modify this if you want to prompt the user instead.)
+        return "flatpak run md.obsidian.Obsidian"
+
+    elif sys.platform.startswith("darwin"):
+        # macOS: Check default location in /Applications.
+        obsidian_app = "/Applications/Obsidian.app/Contents/MacOS/Obsidian"
+        if os.path.exists(obsidian_app):
+            return obsidian_app
+        # Option 2: Check if a command is available in PATH.
+        obsidian_cmd = shutil.which("obsidian")
+        if obsidian_cmd:
+            return obsidian_cmd
+        response = messagebox.askyesno("Obsidian Not Found",
+                                       "Obsidian was not detected in standard locations.\n"
+                                       "Would you like to locate the Obsidian application manually?")
+        if response:
+            selected_path = filedialog.askopenfilename(
+                title="Select Obsidian Application",
+                filetypes=[("Obsidian Application", "*.app")]
+            )
+            if selected_path:
+                return selected_path
+        return None
+
 
 def select_vault_path():
     """
@@ -557,7 +640,7 @@ def auto_sync():
             if rc != 0:
                 if "Could not resolve hostname" in err or "network" in err.lower():
                     safe_update_log("❌ Unable to pull updates due to a network error. Local changes remain safely stashed.", 30)
-                elif "CONFLICT" in (out + err):
+                elif "CONFLICT" in (out + err):  # Detect merge conflicts
                     safe_update_log("❌ A merge conflict was detected during the pull operation.", 30)
                     # Retrieve the list of conflicting files
                     conflict_files, _, _ = run_command("git diff --name-only --diff-filter=U", cwd=vault_path)
@@ -573,7 +656,6 @@ def auto_sync():
                         if rc_rebase != 0:
                             safe_update_log(f"Error continuing rebase: {err_rebase}", 30)
                             run_command("git rebase --abort", cwd=vault_path)
-                            network_available = False
                     elif choice == "theirs":
                         safe_update_log("Resolving conflict by using remote changes...", 30)
                         run_command("git checkout --theirs .", cwd=vault_path)
@@ -582,24 +664,24 @@ def auto_sync():
                         if rc_rebase != 0:
                             safe_update_log(f"Error continuing rebase: {err_rebase}", 30)
                             run_command("git rebase --abort", cwd=vault_path)
-                            network_available = False
-                    elif choice == "abort":
-                        safe_update_log("Aborting rebase as per user choice.", 30)
-                        run_command("git rebase --abort", cwd=vault_path)
-                        network_available = False
+                    elif choice == "manual":
+                        safe_update_log("Please resolve the conflicts manually. After resolving, click OK to continue.", 30)
+                        messagebox.showinfo("Manual Merge", "Please resolve the conflicts in the affected files manually and then click OK.")
+                        run_command("git add -A", cwd=vault_path)
+                        rc_rebase, err_rebase, _ = run_command("git rebase --continue", cwd=vault_path)
+                        if rc_rebase != 0:
+                            safe_update_log(f"Error continuing rebase after manual merge: {err_rebase}", 30)
+                            run_command("git rebase --abort", cwd=vault_path)
                     else:
                         safe_update_log("No valid conflict resolution chosen. Aborting rebase.", 30)
                         run_command("git rebase --abort", cwd=vault_path)
-                        network_available = False
                 else:
-                    safe_update_log(f"❌ Pull operation failed: {err}", 30)
-                run_command("git stash pop", cwd=vault_path)
-                network_available = False
-            else:
-                safe_update_log("Pull operation completed successfully. Your vault is updated with the latest changes from GitHub.", 30)
-                if out.strip():
+                    safe_update_log("Pull operation completed successfully. Your vault is updated with the latest changes from GitHub.", 30)
+                    # Log pulled files
                     for line in out.splitlines():
-                        safe_update_log(f"✓ {line}", None)
+                        safe_update_log(f"✓ Pulled: {line}", 30)
+            else:
+                safe_update_log("Pull operation completed successfully. Your vault is up to date.", 30)
         else:
             safe_update_log("Skipping pull operation due to offline mode.", 20)
 
@@ -614,16 +696,17 @@ def auto_sync():
                 return
         safe_update_log("Successfully reapplied stashed local changes.", 35)
 
-        # Step 6: Open Obsidian for editing
+        # Step 6: Open Obsidian for editing using the helper function
         safe_update_log("Launching Obsidian. Please edit your vault and close Obsidian when finished.", 40)
         try:
-            subprocess.Popen([obsidian_path], shell=True)
+            open_obsidian(obsidian_path)
         except Exception as e:
             safe_update_log(f"Error launching Obsidian: {e}", 40)
             return
         safe_update_log("Waiting for Obsidian to close...", 45)
         while is_obsidian_running():
             time.sleep(0.5)
+
 
         # Step 7: Pull any new changes from GitHub after Obsidian closes
         safe_update_log("Obsidian has been closed. Checking for new remote changes before committing...", 50)
