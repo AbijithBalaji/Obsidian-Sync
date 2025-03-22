@@ -526,28 +526,37 @@ def generate_ssh_key_async(user_email):
     else:
         safe_update_log("SSH key already exists. Overwriting is not performed here.", 30)
 
-    # 2) Read public key and copy to clipboard
+    # 2) Read the public key and attempt to copy to the clipboard
     try:
         with open(SSH_KEY_PATH, "r", encoding="utf-8") as key_file:
             public_key = key_file.read().strip()
-            pyperclip.copy(public_key)
-        safe_update_log("Public key copied to clipboard.", 35)
+        pyperclip.copy(public_key)
+        # Verify that clipboard contains the expected key
+        copied = pyperclip.paste().strip()
+        if copied != public_key:
+            raise Exception("Clipboard copy failed: content mismatch.")
+        safe_update_log("Public key successfully copied to clipboard.", 35)
     except Exception as e:
-        safe_update_log(f"Error reading SSH key: {e}", 35)
-        return
+        safe_update_log(f"Error copying SSH key to clipboard: {e}", 35)
+        # 3) Fallback: show a dialog with manual instructions and the public key
+        messagebox.showinfo(
+            "Manual SSH Key Copy Required",
+            "Automatic copying of your SSH key failed.\n\n"
+            "Please open a terminal and run:\n\n"
+            "   cat ~/.ssh/id_rsa.pub\n\n"
+            "Then copy the output manually and add it to your GitHub account."
+        )
 
-    # 3 & 4) Show dialog, then open GitHub in the main thread
+    # 4) Show final info dialog and open GitHub's SSH keys page
     def show_dialog_then_open_browser():
-        # Show the info dialog first
         messagebox.showinfo(
             "SSH Key Generated",
-            "Your SSH key has been generated (if needed) and copied to your clipboard.\n\n"
-            "Click OK to open GitHub's SSH keys page in your browser.\n"
-            "Then, paste the key and click 'Re-test SSH' to confirm connectivity."
+            "Your SSH key has been generated and copied to the clipboard (if successful).\n\n"
+            "If automatic copying failed, please manually copy the key as described.\n\n"
+            "Click OK to open GitHub's SSH keys page to add your key."
         )
-        # After the user closes the dialog, open the browser
         webbrowser.open("https://github.com/settings/keys")
-
+    
     root.after(0, show_dialog_then_open_browser)
 
 
