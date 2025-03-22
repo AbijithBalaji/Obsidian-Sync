@@ -851,22 +851,37 @@ def run_setup_wizard():
     initialize_git_repo(config_data["VAULT_PATH"])
 
     # 5) Set up GitHub remote (link an existing repository)
-    if not set_github_remote(config_data["VAULT_PATH"]):
-        return
+    while not set_github_remote(config_data["VAULT_PATH"]):
+        retry = messagebox.askretrycancel("GitHub Repository Required",
+                                        "A GitHub repository is required for synchronization.\n"
+                                        "Would you like to try linking it again?")
+        if not retry:
+            messagebox.showerror("Setup Incomplete", 
+                                "Setup cannot proceed without linking a GitHub repository.\n"
+                                "Please restart the application once you have a repository URL.")
+            return
 
     # 6) SSH Key Check/Generation
-    safe_update_log("Checking SSH key...", 25)
     if not os.path.exists(SSH_KEY_PATH):
-        resp = messagebox.askyesno("SSH Key Missing",
-                                   "No SSH key found.\nDo you want to generate one now?")
-        if resp:
-            generate_ssh_key()  # Runs in a background thread
-            safe_update_log("Please add the generated key to GitHub, then click 'Re-test SSH'.", 30)
-        else:
-            messagebox.showwarning("SSH Key Required", 
-                                   "You must generate or provide an SSH key for GitHub sync.")
+        while True:
+            resp = messagebox.askretrycancel("SSH Key Missing",
+                                            "No SSH key found.\nA valid SSH key is required for GitHub synchronization.\n"
+                                            "Would you like to generate one now?")
+            if resp:
+                generate_ssh_key()  # This runs in a background thread.
+                # Wait a moment for key generation (or use a more robust synchronization mechanism)
+                time.sleep(3)
+                if os.path.exists(SSH_KEY_PATH):
+                    break
+                else:
+                    messagebox.showerror("SSH Key Generation Failed", "SSH key generation did not complete. Please try again.")
+            else:
+                messagebox.showerror("Setup Incomplete", 
+                                    "Setup cannot proceed without an SSH key.\nPlease restart the application once you have an SSH key.")
+                return
     else:
         safe_update_log("SSH key found. Make sure it's added to GitHub if you haven't already.", 30)
+
 
     # 7) Test SSH connection
     re_test_ssh()
