@@ -131,20 +131,21 @@ def is_obsidian_running():
     return False
 
 def safe_update_log(message, progress=None):
-    if log_text and progress_bar and root.winfo_exists():
-        def _update():
-            log_text.config(state='normal')
-            log_text.insert(tk.END, message + "\n")
-            log_text.config(state='disabled')
-            log_text.yview_moveto(1)
-            if progress is not None:
-                progress_bar["value"] = progress
+    def _update():
         try:
-            root.after(0, _update)
+            if log_text and progress_bar and root.winfo_exists():
+                log_text.config(state='normal')
+                log_text.insert(tk.END, message + "\n")
+                log_text.config(state='disabled')
+                log_text.yview_moveto(1)
+                if progress is not None:
+                    progress_bar["value"] = progress
+            else:
+                print(message)
         except Exception as e:
-            print("Error scheduling UI update:", e)
-    else:
-        print(message)
+            print("Error updating log:", e)
+    root.after(0, _update)
+
 
 def is_network_available():
     """
@@ -861,22 +862,25 @@ def run_setup_wizard():
                                 "Please restart the application once you have a repository URL.")
             return
 
-    # 6) SSH Key Check/Generation
+    # Step 6: SSH Key Check/Generation
+    safe_update_log("Checking SSH key...", 25)
     if not os.path.exists(SSH_KEY_PATH):
         while True:
-            resp = messagebox.askretrycancel("SSH Key Missing",
-                                            "No SSH key found.\nA valid SSH key is required for GitHub synchronization.\n"
-                                            "Would you like to generate one now?")
+            # Use askokcancel so the user only sees "OK" or "Cancel"
+            resp = messagebox.askokcancel("SSH Key Missing",
+                                        "No SSH key found. A valid SSH key is required for GitHub synchronization.\n"
+                                        "Click OK to generate a new SSH key.")
             if resp:
                 generate_ssh_key()  # This runs in a background thread.
-                # Wait a moment for key generation (or use a more robust synchronization mechanism)
+                # Give some time for key generation; adjust sleep duration as needed.
                 time.sleep(3)
                 if os.path.exists(SSH_KEY_PATH):
+                    safe_update_log("SSH key generated and found.", 30)
                     break
                 else:
                     messagebox.showerror("SSH Key Generation Failed", "SSH key generation did not complete. Please try again.")
             else:
-                messagebox.showerror("Setup Incomplete", 
+                messagebox.showerror("Setup Incomplete",
                                     "Setup cannot proceed without an SSH key.\nPlease restart the application once you have an SSH key.")
                 return
     else:
