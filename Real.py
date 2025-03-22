@@ -172,8 +172,7 @@ def open_obsidian(obsidian_path):
     Launches Obsidian in a cross-platform manner.
     On Linux, if obsidian_path is a command string (e.g., from Flatpak), it is split properly;
     otherwise, it launches using shell=True.
-    """
-    import shlex
+    """ 
     if sys.platform.startswith("linux"):
         cmd = shlex.split(obsidian_path)
         subprocess.Popen(cmd)
@@ -248,15 +247,14 @@ def initialize_git_repo(vault_path):
 
 def set_github_remote(vault_path):
     """
-    Prompts the user to link an existing GitHub repository,
-    handling the case where 'origin' already exists.
-    Returns True if successful or skipped gracefully, False if an error occurs.
+    Prompts the user to link an existing GitHub repository.
+    If the user chooses not to link (or closes the dialog without providing a URL),
+    an error is shown indicating that linking a repository is required.
+    Returns True if the repository is linked successfully; otherwise, returns False.
     """
-
-    # First, check if a remote named 'origin' is already set
+    # Check if a remote named 'origin' already exists
     existing_remote_url, err, rc = run_command("git remote get-url origin", cwd=vault_path)
     if rc == 0:
-        # 'origin' remote already exists
         safe_update_log(f"A remote named 'origin' already exists: {existing_remote_url}", 25)
         override = messagebox.askyesno(
             "Existing Remote",
@@ -264,21 +262,22 @@ def set_github_remote(vault_path):
             "Do you want to override it with a new URL?"
         )
         if not override:
-            # User wants to keep the existing remote; just skip reconfiguration
             safe_update_log("Keeping the existing 'origin' remote. Skipping new remote configuration.", 25)
             return True
         else:
-            # User wants to override the existing 'origin'
             out, err, rc = run_command("git remote remove origin", cwd=vault_path)
             if rc != 0:
                 safe_update_log(f"Error removing existing remote: {err}", 25)
                 return False
             safe_update_log("Existing 'origin' remote removed.", 25)
 
-    # If we reach here, there's either no 'origin' or we've just removed it
+    # Prompt for linking a repository
+    # Instead of allowing a "No" option, we require linking.
     use_existing_repo = messagebox.askyesno(
         "GitHub Repository",
-        "Do you want to link to an existing GitHub repository now?"
+        "A GitHub repository is required for synchronization.\n"
+        "Do you have an existing repository you would like to link?\n"
+        "(If not, please create a private repository on GitHub and then link to it.)"
     )
     if use_existing_repo:
         repo_url = simpledialog.askstring(
@@ -290,16 +289,18 @@ def set_github_remote(vault_path):
             out, err, rc = run_command(f"git remote add origin {repo_url}", cwd=vault_path)
             if rc == 0:
                 safe_update_log(f"Git remote 'origin' set to: {repo_url}", 25)
+                return True
             else:
-                safe_update_log(f"Error setting Git remote: {err}", 25)
+                messagebox.showerror("Error", f"Error setting Git remote: {err}\nPlease try again.")
                 return False
         else:
-            messagebox.showerror("Error", "Repository URL not provided. Please try again.")
+            messagebox.showerror("Error", "Repository URL not provided. You must link to a GitHub repository.")
             return False
     else:
-        safe_update_log("Skipping GitHub remote setup. You can set this up later manually.", 25)
-
-    return True
+        messagebox.showerror("GitHub Repository Required", 
+                             "Linking a GitHub repository is required for synchronization.\n"
+                             "Please create a repository on GitHub (private is recommended) and then link to it.")
+        return False
 
 def ensure_placeholder_file(vault_path):
     """
