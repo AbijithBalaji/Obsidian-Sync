@@ -47,106 +47,113 @@
    ```bash
    git clone https://github.com/Ogrelix/Ogresync.git
    cd Ogresync
+   ```
+2. **(Optional) Create a Virtual Environment:**
 
-(Optional) Create a Virtual Environment:
-
-bash
-Copy
-python3 -m venv venv
-source venv/bin/activate
-Install Dependencies:
-
-bash
-Copy
+  ```bash
+  python3 -m venv venv
+  source venv/bin/activate
+```
+3. **Install Dependencies:**
+```bash
 pip install -r requirements.txt
-Run Ogresync:
-
-bash
-Copy
+```
+4. **Run Ogresync:**
+```bash
 python ogresync.py
-Packaged Executables
+```
+
+### Packaged Executables
 Download native packages from our Releases page:
 
-Windows: .exe file
+- Windows: .exe file
+- macOS: .app bundle
+- Linux: AppImage
+  
+---
 
-macOS: .app bundle
+## Usage
+### 1. Initial Setup:
+- The setup wizard guides you through detecting your Obsidian installation and selecting your vault folder.
 
-Linux: AppImage
+- Ogresync verifies Git and SSH configuration. If no SSH key exists, it can generate one (with instructions provided if automatic clipboard copying fails).
 
-Usage
-Initial Setup:
+- You will be prompted to link your GitHub repository (create a private repo if needed). This is mandatory for synchronization.
 
-The setup wizard guides you through detecting your Obsidian installation and selecting your vault folder.
+### 2. Automatic Synchronization:
 
-Ogresync verifies Git and SSH configuration. If no SSH key exists, it can generate one (with instructions provided if automatic clipboard copying fails).
+- On subsequent runs, Ogresync will:
 
-You will be prompted to link your GitHub repository (create a private repo if needed). This is mandatory for synchronization.
+  - Stash any local changes.
 
-Automatic Synchronization:
+  - Pull the latest updates from GitHub before launching Obsidian (including handling any conflicts via a dialog if necessary).
 
-On subsequent runs, Ogresync will:
+  - Launch Obsidian for editing.
 
-Stash any local changes.
+  - Wait until Obsidian is closed.
 
-Pull the latest updates from GitHub before launching Obsidian (including handling any conflicts via a dialog if necessary).
+  - Commit any local changes.
 
-Launch Obsidian for editing.
+  - Push unpushed commits to GitHub (or queue them if offline).
 
-Wait until Obsidian is closed.
+### 3. Conflict Resolution:
 
-Commit any local changes.
+- If a file is modified both locally and on GitHub (e.g., the same file is edited on another device), a merge conflict is detected.
 
-Push unpushed commits to GitHub (or queue them if offline).
+- A dialog box will appear, asking whether to:
 
-Conflict Resolution:
+  - Keep Local Changes (Ours)
 
-If a file is modified both locally and on GitHub (e.g., the same file is edited on another device), a merge conflict is detected.
+  - Use Remote Changes (Theirs)
 
-A dialog box will appear, asking whether to:
+  - Merge Manually
 
-Keep Local Changes (Ours)
+- Your choice determines how the conflict is resolved before synchronization continues.
 
-Use Remote Changes (Theirs)
+---
 
-Merge Manually
-
-Your choice determines how the conflict is resolved before synchronization continues.
-
-Contributing
+## Contributing
 We welcome contributions from the community! To contribute:
 
-Fork the repository.
+- Fork the repository.
 
-Create a branch for your feature or bug fix.
+- Create a branch for your feature or bug fix.
 
-Submit a pull request with your changes.
+- Submit a pull request with your changes.
 
-Please review our CONTRIBUTING.md for detailed guidelines.
+- Please review our CONTRIBUTING.md for detailed guidelines.
 
-Roadmap
-Enhanced Conflict Resolution UI:
-Improve the merge conflict dialog and integrate external merge tools.
+---
 
-Native Shortcuts & Installers:
-Develop desktop/start menu shortcuts and native installers for all platforms.
+## Roadmap
+- Enhanced Conflict Resolution UI:
+  Improve the merge conflict dialog and integrate external merge tools.
 
-Cross-Platform Packaging:
-Further refine packaging for macOS (.app) and Linux (AppImage) to ensure a seamless user experience.
+- Native Shortcuts & Installers:
+  Develop desktop/start menu shortcuts and native installers for all platforms.
 
-Additional Features:
-Custom commit messages, scheduled syncs, and more.
+- Cross-Platform Packaging:
+  Further refine packaging for macOS (.app) and Linux (AppImage) to ensure a seamless user experience.
 
-License
+- Additional Features:
+  Custom commit messages, scheduled syncs, and more.
+
+---
+
+## License
 Ogresync is licensed under the GNU General Public License v3.0 (GPLv3). See the LICENSE file for full details.
 
-About Ogrelix
+---
+
+## About Ogrelix
 Ogrelix is a dynamic, innovative startup (MSMI registered) with a playful spirit. With two products already launched, we are committed to creating modern, user-friendly solutions that empower individuals in their digital workflows. Ogresync is one of our flagship products aimed at making your note-taking and knowledge management seamless and secure.
 
-Contact
+---
+
+## Contact
 For questions, feedback, or support, please open an issue on GitHub or contact us at contact@ogrelix.com.
 
 Join the Ogresync community and help us build a better, more connected way to manage your Obsidian vault!
-
 
 ---
 
