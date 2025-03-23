@@ -123,7 +123,7 @@ We welcome contributions from the community! To contribute:
 
 - Submit a pull request with your changes.
 
-- Please review our CONTRIBUTING.md for detailed guidelines.
+See `CONTRIBUTING.md` for more guidelines.
 
 ---
 
@@ -168,12 +168,14 @@ Ogrelix is an MSME-registered startup based in India, focused on building innova
 
 ---
 
-## Contact
+Contact
+-------
+
 For suggestions, support, or collaboration inquiries:
 
-- Email: abijith.balaji@gmail.com
+-   Email: abijith.balaji@gmail.com
 
-- GitHub Issues: Open an issue
+-   GitHub Issues: [Open an issue](https://github.com/Ogrelix/Ogresync/issues)
 
 ---
 
