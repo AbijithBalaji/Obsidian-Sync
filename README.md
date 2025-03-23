@@ -53,15 +53,15 @@
   ```bash
   python3 -m venv venv
   source venv/bin/activate
-```
+  ```
 3. **Install Dependencies:**
-```bash
-pip install -r requirements.txt
-```
+  ```bash
+  pip install -r requirements.txt
+  ```
 4. **Run Ogresync:**
-```bash
-python ogresync.py
-```
+  ```bash
+  python ogresync.py
+  ```
 
 ### Packaged Executables
 Download native packages from our Releases page:
