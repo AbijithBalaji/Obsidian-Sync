@@ -120,15 +120,27 @@ If the same file is modified on two systems:
 ---
 
 ## Contributing
-We welcome contributions from the community! To contribute:
 
-- Fork the repository.
+We welcome contributions from the community! To keep our codebase clean and facilitate smooth collaboration, please follow these guidelines:
 
-- Create a branch for your feature or bug fix.
+### Branch Structure
+- **main**: Contains stable, production-ready code (currently Windows is stable).
+- **develop**: The active development branch for new features, bug fixes, and cross-platform improvements. Please branch off `develop` for your work.
+  
+### How to Contribute
+1. Fork this repository.
+2. Clone your fork and create a new branch from `develop`:
+   ```bash
+   git checkout -b feature/your-feature-name develop
+3. Implement your changes following our coding standards and ensure tests pass.
 
-- Submit a pull request with your changes.
+4. Commit your changes with clear, descriptive commit messages.
 
-See `CONTRIBUTING.md` for more guidelines.
+5. Push your branch to your fork and submit a pull request against the `develop` branch.
+
+6. Your pull request will be reviewed by maintainers. Please be responsive to feedback.
+
+For more detailed guidelines, please see our <CONTRIBUTING.md> file.
 
 ---
 
