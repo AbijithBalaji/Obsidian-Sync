@@ -1,6 +1,6 @@
 # Ogresync
 
-![Ogresync Logo](./Ogresync.png)
+![Ogresync Logo](logo.ico)
 
 **Ogresync** is an open-source synchronization tool that automates syncing your Obsidian vault with GitHub using Git and SSH. Developed by **Ogrelix**, a dynamic MSMI-registered startup, Ogresync helps you keep your personal knowledge base safe, versioned, and up-to-date—all with minimal manual intervention.
 
