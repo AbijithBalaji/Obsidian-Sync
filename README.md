@@ -2,29 +2,29 @@
 
 ![Ogresync Logo](logo.ico)
 
-**Ogresync** is an open-source synchronization tool that automates syncing your Obsidian vault with GitHub using Git and SSH. Developed by **Ogrelix**, a dynamic MSMI-registered startup, Ogresync helps you keep your personal knowledge base safe, versioned, and up-to-date—all with minimal manual intervention.
+**Ogresync** is an open-source synchronization tool that automates syncing your Obsidian vault with GitHub using Git and SSH. Built using Python, it’s a project by **Ogrelix**, a startup focused on creating streamlined, user-centric software tools that simplify digital workflows.
 
 ---
 
 ## Features
 
 - **One-Time Setup Wizard**  
-  Automatically detects your Obsidian installation, allows you to select your vault folder, and configures Git and SSH (including key generation and detailed manual instructions if needed).
+  Automatically detects Obsidian, configures Git and SSH, and guides you through selecting your vault and linking your GitHub repository.
 
 - **Automatic Synchronization**  
-  Stashes local changes, pulls remote updates (with conflict resolution if necessary), launches Obsidian for editing, and then commits and pushes your changes automatically.
+  Detects local changes, pulls remote updates with stash support, launches Obsidian, and upon closing, commits and pushes updates automatically.
 
 - **Intelligent Conflict Resolution**  
-  If a file is modified both locally and on GitHub, Ogresync detects conflicts and prompts you with user-friendly options to keep local changes, use remote changes, or merge manually.
+  Handles merge conflicts with options to keep local or remote changes, or resolve manually. (Currently under refinement—see Known Issues.)
 
-- **Offline Operation**  
-  Works gracefully when offline by committing local changes and queuing them for push when internet connectivity is restored.
+- **Offline Resilience**  
+  Works even without an internet connection, queues local commits, and pushes them automatically when online.
 
-- **Cross-Platform Support**  
-  Built in Python, Ogresync runs on Windows, Linux (packaged as an AppImage), and macOS (packaged as a .app bundle).
+- **Cross-Platform Compatibility**  
+  Supports Windows, Linux (AppImage), and macOS (.app). Platform-specific behaviors are handled internally.
 
-- **Open Source & Community-Driven**  
-  We welcome contributions! Ogresync is designed for collaboration and continuous improvement.
+- **Community-Centric & Open Source**  
+  Contributions, feedback, and ideas are welcome to enhance and expand the project further.
 
 ---
 
@@ -32,21 +32,21 @@
 
 ### Prerequisites
 
-- **Git:** Ensure Git is installed and available in your PATH.  
+- **Git:** Ensure Git is installed and available in your system PATH.  
   [Download Git](https://git-scm.com/)
 
-- **SSH:** A valid SSH key is required for GitHub synchronization. If not present, Ogresync can generate one for you.
-  
-- **Obsidian:** Install Obsidian from [obsidian.md](https://obsidian.md/).  
-  *Linux users:* If using clipboard features, please install `xclip` or `xsel`.
+- **SSH:** A valid SSH key is required for GitHub synchronization. If absent, Ogresync will assist you in generating one and provide manual instructions if needed.
+
+- **Obsidian:** Install from [obsidian.md](https://obsidian.md/)  
+  *Linux users:* For clipboard functionality, install either `xclip` or `xsel`.
+
+---
 
 ### Running from Source
 
-1. **Clone the Repository:**
-
-   ```bash
-   git clone https://github.com/Ogrelix/Ogresync.git
-   cd Ogresync
+```bash
+git clone https://github.com/Ogrelix/Ogresync.git
+cd Ogresync
    ```
 2. **(Optional) Create a Virtual Environment:**
 
@@ -76,41 +76,41 @@ Download native packages from our Releases page:
 
 ## Usage
 ### 1. Initial Setup:
-- The setup wizard guides you through detecting your Obsidian installation and selecting your vault folder.
+- The wizard helps you choose your Obsidian vault and configures everything, including SSH and GitHub repository setup.
 
-- Ogresync verifies Git and SSH configuration. If no SSH key exists, it can generate one (with instructions provided if automatic clipboard copying fails).
+- If you don’t have a GitHub repo, you’ll be prompted to create a private one and provide its URL.
 
-- You will be prompted to link your GitHub repository (create a private repo if needed). This is mandatory for synchronization.
+- SSH keys are auto-generated if not found. On Linux/macOS, manual instructions are displayed in case clipboard copy fails.
 
 ### 2. Automatic Synchronization:
 
-- On subsequent runs, Ogresync will:
+Once setup is complete, just run Ogresync instead of opening Obsidian directly.
 
-  - Stash any local changes.
+- It pulls any updates from GitHub before opening Obsidian.
 
-  - Pull the latest updates from GitHub before launching Obsidian (including handling any conflicts via a dialog if necessary).
+- You edit your notes as usual in Obsidian.
 
-  - Launch Obsidian for editing.
+- After you close Obsidian:
 
-  - Wait until Obsidian is closed.
+  - Any changes are automatically committed.
 
-  - Commit any local changes.
+  - If online, changes are pushed to GitHub.
 
-  - Push unpushed commits to GitHub (or queue them if offline).
+  - If offline, they remain committed locally and will be pushed later.
 
 ### 3. Conflict Resolution:
 
-- If a file is modified both locally and on GitHub (e.g., the same file is edited on another device), a merge conflict is detected.
+- Conflicts are detected and logged.
 
-- A dialog box will appear, asking whether to:
+- You will be prompted to resolve using:
 
-  - Keep Local Changes (Ours)
+  - Keep Local Changes
 
-  - Use Remote Changes (Theirs)
+  - Use Remote Changes
 
   - Merge Manually
 
-- Your choice determines how the conflict is resolved before synchronization continues.
+(See Known Issues for current limitations.)
 
 ---
 
@@ -124,6 +124,21 @@ We welcome contributions from the community! To contribute:
 - Submit a pull request with your changes.
 
 - Please review our CONTRIBUTING.md for detailed guidelines.
+
+---
+
+## Known Issues
+- **Conflict Dialog Not Triggering Properly:**
+The dialog for resolving merge conflicts is not always shown as expected during certain workflows. We are actively working to fix this.
+
+- **Linux and macOS Bugs:**
+While basic functionality works, further testing and optimizations are needed. Clipboard features may not work out of the box.
+
+- **Packaging & Shortcuts:**
+Native shortcut creation (Start Menu, desktop icons, app directory registration) is not yet implemented.
+
+- **Setup Responsiveness:**
+If the user exits dialog boxes prematurely during setup, the main window may become unresponsive. A fallback loop is under development.
 
 ---
 
@@ -143,31 +158,33 @@ We welcome contributions from the community! To contribute:
 ---
 
 ## License
-Ogresync is licensed under the GNU General Public License v3.0 (GPLv3). See the LICENSE file for full details.
+Ogresync is licensed under the GNU General Public License v3.0 (GPLv3). 
+See the LICENSE file for full details.
 
 ---
 
 ## About Ogrelix
-Ogrelix is a dynamic, innovative startup (MSMI registered) with a playful spirit. With two products already launched, we are committed to creating modern, user-friendly solutions that empower individuals in their digital workflows. Ogresync is one of our flagship products aimed at making your note-taking and knowledge management seamless and secure.
+Ogrelix is an MSME-registered startup based in India, focused on building innovative, simple, and impactful digital tools. While we’re not a formal private limited company, our team is passionate about solving real-world problems through open-source and community-driven development. Ogresync is one of our flagship products under active development.
 
 ---
 
 ## Contact
-For questions, feedback, or support, please open an issue on GitHub or contact us at contact@ogrelix.com.
+For suggestions, support, or collaboration inquiries:
 
-Join the Ogresync community and help us build a better, more connected way to manage your Obsidian vault!
+- Email: abijith.balaji@gmail.com
+
+- GitHub Issues: Open an issue
 
 ---
 
-### **Packaging Instructions:**
+### Future Packaging Plans
 
-Since you plan to distribute native applications for Windows, Linux, and macOS, add this brief note to your README (under a "TODO" section or similar):
+We aim to release production-ready packages with:
 
-```markdown
-### 🚧 Future Packaging Enhancements
+- Installers that add the app to system paths
 
-- We are actively working on packaging Ogresync as native applications for:
-  - **Windows:** A standalone `.exe` file.
-  - **Linux:** An AppImage for easy distribution.
-  - **macOS:** A proper `.app` bundle.
-- For now, you can run Ogresync from source, and precompiled binaries will be available in future releases.
+- Start Menu/Desktop shortcuts
+
+- Cross-platform builds via CI pipelines
+
+Stay tuned for these enhancements in upcoming releases.
