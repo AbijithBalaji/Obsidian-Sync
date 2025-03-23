@@ -66,49 +66,54 @@ cd Ogresync
   ```
 
 ### Packaged Executables
-Download native packages from our Releases page:
+Download ready-to-use binaries from the [Releases](https://github.com/Ogrelix/Ogresync/releases) page:
 
-- Windows: .exe file
-- macOS: .app bundle
-- Linux: AppImage
+-   **Windows:** Executable `.exe`
+
+-   **Linux:** AppImage
+
+-   **macOS:** `.app` bundle (coming soon)
   
 ---
 
 ## Usage
-### 1. Initial Setup:
-- The wizard helps you choose your Obsidian vault and configures everything, including SSH and GitHub repository setup.
+### 1\. Initial Setup
 
-- If you don’t have a GitHub repo, you’ll be prompted to create a private one and provide its URL.
+-   The wizard helps you choose your Obsidian vault and configures everything, including SSH and GitHub repository setup.
 
-- SSH keys are auto-generated if not found. On Linux/macOS, manual instructions are displayed in case clipboard copy fails.
+-   If you don't have a GitHub repo, you'll be prompted to create a private one and provide its URL.
 
-### 2. Automatic Synchronization:
+-   SSH keys are auto-generated if not found. On Linux/macOS, manual instructions are displayed in case clipboard copy fails.
 
-Once setup is complete, just run Ogresync instead of opening Obsidian directly.
+### 2\. Automatic Synchronization
 
-- It pulls any updates from GitHub before opening Obsidian.
+Once setup is complete, just run **Ogresync** instead of opening Obsidian directly.
 
-- You edit your notes as usual in Obsidian.
+-   It pulls any updates from GitHub before opening Obsidian.
 
-- After you close Obsidian:
+-   You edit your notes as usual in Obsidian.
 
-  - Any changes are automatically committed.
+-   After you close Obsidian:
 
-  - If online, changes are pushed to GitHub.
+    -   Any changes are automatically committed.
 
-  - If offline, they remain committed locally and will be pushed later.
+    -   If online, changes are pushed to GitHub.
 
-### 3. Conflict Resolution:
+    -   If offline, they remain committed locally and will be pushed later.
 
-- Conflicts are detected and logged.
+### 3\. Conflict Handling
 
-- You will be prompted to resolve using:
+If the same file is modified on two systems:
 
-  - Keep Local Changes
+-   Conflicts are detected and logged.
 
-  - Use Remote Changes
+-   You will be prompted to resolve using:
 
-  - Merge Manually
+    -   Keep Local Changes
+
+    -   Use Remote Changes
+
+    -   Merge Manually
 
 (See Known Issues for current limitations.)
 
@@ -128,6 +133,7 @@ See `CONTRIBUTING.md` for more guidelines.
 ---
 
 ## Known Issues
+
 - **Conflict Dialog Not Triggering Properly:**
 The dialog for resolving merge conflicts is not always shown as expected during certain workflows. We are actively working to fix this.
 
@@ -143,16 +149,16 @@ If the user exits dialog boxes prematurely during setup, the main window may bec
 ---
 
 ## Roadmap
-- Enhanced Conflict Resolution UI:
+- **Enhanced Conflict Resolution UI:**
   Improve the merge conflict dialog and integrate external merge tools.
 
-- Native Shortcuts & Installers:
+- **Native Shortcuts & Installers:**
   Develop desktop/start menu shortcuts and native installers for all platforms.
 
-- Cross-Platform Packaging:
+- **Cross-Platform Packaging:**
   Further refine packaging for macOS (.app) and Linux (AppImage) to ensure a seamless user experience.
 
-- Additional Features:
+- **Additional Features:**
   Custom commit messages, scheduled syncs, and more.
 
 ---
@@ -164,7 +170,7 @@ See the LICENSE file for full details.
 ---
 
 ## About Ogrelix
-Ogrelix is an MSME-registered startup based in India, focused on building innovative, simple, and impactful digital tools. While we’re not a formal private limited company, our team is passionate about solving real-world problems through open-source and community-driven development. Ogresync is one of our flagship products under active development.
+**Ogrelix** is an MSME-registered startup based in India, focused on building innovative, simple, and impactful digital tools. While we're not a formal private limited company, our team is passionate about solving real-world problems through open-source and community-driven development. Ogresync is one of our flagship products under active development.
 
 ---
 
